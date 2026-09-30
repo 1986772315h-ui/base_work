@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>代号M98 · 义体改造原型</title>
+<style>
+  :root{
+    --bg:#f2f1ec; --panel:#fffefa; --line:#e1dfd6; --line2:#ebe9e2; --wash:#f7f6f1;
+    --ink:#1f1f1b; --ink2:#5d5c54; --ink3:#95938a;
+    --mod:#b45309; --body:#0f766e; --ok:#15803d; --bad:#b91c1c;
+    --arm:#c2410c; --torso:#1d4ed8; --head:#7c3aed;
+    --r-lg:14px; --r-md:10px; --r-sm:7px;
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.6 "Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums}
+  .app{max-width:1480px;margin:0 auto;padding:14px 16px 24px}
+
+  /* ===== 顶栏 ===== */
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .purse{display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+    border-radius:999px;padding:5px 15px 5px 6px;background:var(--panel);font-size:13px;color:var(--ink2)}
+  .purse b{font-weight:600;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums;min-width:1.2em}
+  .topbar .spacer{flex:1}
+  .ghost{font-size:12px;color:var(--ink3);border:1px solid transparent;background:transparent;padding:4px 10px;border-radius:8px}
+  .ghost:hover{color:var(--ink);background:#e9e8e2}
+
+  /* 资源令牌：顶栏 / 价格 / 掉落 通用 */
+  .cur{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;
+    font-size:11px;line-height:1;color:#fff;font-weight:600;flex:none}
+  .cur.mod{background:var(--mod)} .cur.body{background:var(--body)}
+  .tk{display:inline-flex;align-items:center;gap:3px;font-weight:600;font-variant-numeric:tabular-nums}
+  .tk .cur{width:16px;height:16px;font-size:9.5px}
+  .tk.short{color:var(--bad)}
+
+  .grid{display:grid;grid-template-columns:250px minmax(0,1fr) 380px;gap:14px;align-items:start}
+  @media (max-width:1260px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
+  .ph{font-size:11px;font-weight:600;margin:0 0 10px;color:var(--ink3);letter-spacing:.12em}
+
+  /* ===== 按钮 ===== */
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:8px;padding:5px 11px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s,border-color .15s,color .15s}
+  button:hover:not(:disabled){border-color:#bcbab0;background:#faf9f5}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  button.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.pri:hover:not(:disabled){background:#3a3a33;border-color:#3a3a33}
+  button.pc{border-color:color-mix(in srgb,var(--pc) 45%,#fff);color:var(--pc);background:#fff;font-weight:600}
+  button.pc:hover:not(:disabled){background:color-mix(in srgb,var(--pc) 7%,#fff);border-color:var(--pc)}
+  button.lk{background:var(--wash);border-style:dashed}
+  button.txt{border-color:transparent;background:transparent;color:var(--ink3);padding:5px 8px}
+  button.txt:hover:not(:disabled){color:var(--ink);background:#f0efe9;border-color:transparent}
+  button.tiny{padding:3px 9px;font-size:12px}
+
+  /* ===== 中栏：立绘 + 标注 ===== */
+  .stagewrap{display:flex;padding:6px 0 4px;overflow-x:auto}
+  .stagewrap .stage{margin:0 auto}
+  .stage{position:relative;flex:none}
+  .portrait{position:absolute;left:0;top:0;border-radius:12px;overflow:hidden;
+    background-color:#f6f5f0;
+    background-image:linear-gradient(#e7e5dc 1px,transparent 1px),linear-gradient(90deg,#e7e5dc 1px,transparent 1px);
+    background-size:24px 24px;border:1px solid var(--line2)}
+  .portrait img{display:block;width:100%;height:100%;mix-blend-mode:multiply}
+  .lead{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:1}
+  .dot{position:absolute;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);
+    border:3px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.2);
+    cursor:pointer;padding:0;z-index:3;transition:box-shadow .2s var(--ease)}
+  .dot:hover,.dot.sel{box-shadow:0 0 0 1.5px rgba(0,0,0,.28),0 0 0 7px color-mix(in srgb,var(--pc) 28%,transparent)}
+
+  .callout{position:absolute;transform:translateY(-50%);width:252px;background:#fff;
+    border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px 10px;cursor:pointer;z-index:2;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);transition:border-color .15s,box-shadow .2s var(--ease)}
+  .callout:hover{border-color:color-mix(in srgb,var(--pc) 45%,var(--line))}
+  .callout.sel{border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 16%,transparent)}
+  .co-h{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .co-h .pd{width:8px;height:8px;border-radius:50%;background:var(--pc)}
+  .co-h b{font-size:13.5px;font-weight:600}
+  .co-h .role{font-size:11px;color:var(--ink3)}
+  .co-h .cnt{margin-left:auto;font-size:11.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .co-act{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);margin-bottom:6px}
+  .co-act .lb{font-size:10.5px;color:var(--ink3);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+  .co-act b{font-weight:600;color:var(--ink)}
+
+  /* 槽位：标注卡(小) / 部位面板(大) 通用 */
+  .slots{display:flex;gap:5px}
+  .sl{position:relative;border-radius:var(--r-sm);display:grid;place-items:center;flex:none}
+  .slots.sm .sl{width:34px;height:34px;font-size:16px}
+  .sl.used{background:color-mix(in srgb,var(--pc) 11%,#fff);border:1.5px solid color-mix(in srgb,var(--pc) 55%,#fff)}
+  .sl.free{background:#fff;border:1.5px solid #cfcdc4}
+  .sl.locked{background:repeating-linear-gradient(135deg,#f3f2ed 0 5px,#ecebe5 5px 10px);border:1.5px dashed #d3d1c8}
+  .sl .slv{position:absolute;right:-4px;bottom:-5px;font-size:9.5px;line-height:1;font-weight:600;
+    background:var(--pc);color:#fff;border-radius:4px;padding:2px 3px;font-variant-numeric:tabular-nums}
+  .sl.locked .lki{font-size:10px;opacity:.5}
+
+  .slots.lg{gap:8px;margin-bottom:4px}
+  .slots.lg .sl{flex:1;height:64px;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:4px}
+  .slots.lg .sl .si{font-size:20px;line-height:1.1}
+  .slots.lg .sl .sn{font-size:11px;color:var(--ink2);white-space:nowrap}
+  .slots.lg .sl.used .sn{color:var(--pc);font-weight:600}
+  .slots.lg .sl.free .sn{color:var(--ink3)}
+  .slots.lg .sl .slv{right:5px;top:5px;bottom:auto}
+  .slots.lg button.sl.locked{cursor:pointer;color:var(--ink2);font-size:12px}
+  .slots.lg button.sl.locked:hover:not(:disabled){border-color:var(--body);background:#f4faf8}
+  .slots.lg button.sl.locked .sn{color:var(--ink2);font-weight:600}
+
+  /* ===== 右栏通用 ===== */
+  .rhead{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .rhead .rt{font-size:11px;font-weight:600;color:var(--ink3);letter-spacing:.12em}
+  .rhead .spacer{flex:1}
+  .sect{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--ink2);margin:16px 0 8px;letter-spacing:.06em}
+  .sect::after{content:"";flex:1;height:1px;background:var(--line2)}
+  .sect .aux{order:2;font-weight:400;color:var(--ink3);letter-spacing:0}
+  .muted{font-size:12px;color:var(--ink3)}
+
+  /* ===== 关卡列表 ===== */
+  .lv{display:grid;grid-template-columns:44px 1fr;gap:12px;border:1px solid var(--line);border-radius:var(--r-md);
+    padding:12px;margin-bottom:10px;background:#fff}
+  .lv .idx{height:44px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:15px;
+    background:var(--wash);border:1px solid var(--line2);color:var(--ink2)}
+  .lv.done .idx{background:#eaf5ed;border-color:#cde6d4;color:var(--ok)}
+  .lv .t1{display:flex;align-items:center;gap:8px}
+  .lv .ln{font-weight:600;font-size:14px}
+  .lv .st{margin-left:auto;font-size:11px;border-radius:999px;padding:1px 8px;background:#f0efe9;color:var(--ink3)}
+  .lv.done .st{background:#e8f3ea;color:var(--ok);font-weight:600}
+  .lv .meta{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;font-size:12px}
+  .lv .hp{color:var(--ink2);font-variant-numeric:tabular-nums}
+  .mech{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:1px 7px;
+    color:var(--fc);background:color-mix(in srgb,var(--fc) 9%,#fff);font-weight:600;font-size:12px}
+  .lv .row{display:flex;justify-content:flex-end}
+
+  /* ===== 被动芯片卡 ===== */
+  .chip{display:grid;grid-template-columns:42px 1fr;gap:11px;border:1px solid var(--line);border-radius:var(--r-md);
+    padding:11px 11px 10px;margin-bottom:8px;background:#fff;position:relative}
+  .chip .ic{position:relative;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:20px;
+    background:var(--wash);border:1px solid var(--line2)}
+  .chip .ic .lkb{position:absolute;right:-5px;bottom:-5px;width:18px;height:18px;border-radius:50%;
+    background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:9.5px;filter:none;opacity:1}
+  .chip .h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .chip .nm{font-weight:600;font-size:13.5px}
+  .chip .st{margin-left:auto;font-size:11px;border-radius:999px;padding:1px 8px;white-space:nowrap}
+  .chip .desc{font-size:12px;color:var(--ink2);margin:3px 0 8px;line-height:1.5}
+  .chip .ft{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .hint{font-size:11.5px;color:var(--bad)}
+
+  .chip.locked{background:var(--wash);border-style:dashed}
+  .chip.locked .ic{background:#efeee8}
+  .chip.locked .ic .em{filter:grayscale(1);opacity:.5}
+  .chip.locked .nm{color:var(--ink2)}
+  .chip.locked .st{background:#ebeae4;color:var(--ink3)}
+  .chip.owned .st{background:#f0efe9;color:var(--ink2)}
+  .chip.equip{border-color:color-mix(in srgb,var(--pc) 50%,#fff);box-shadow:inset 3px 0 0 var(--pc)}
+  .chip.equip .ic{background:color-mix(in srgb,var(--pc) 12%,#fff);border-color:color-mix(in srgb,var(--pc) 30%,#fff)}
+  .chip.equip .st{background:var(--pc);color:#fff;font-weight:600}
+
+  /* ===== 演算 ===== */
+  .bh{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+  .bh .ln{font-weight:600}
+  .verdict{display:flex;align-items:center;gap:11px;border-radius:var(--r-md);padding:10px 12px;margin:12px 0 10px;border:1px solid}
+  .verdict.win{background:#eef7f0;border-color:#cfe6d6}
+  .verdict.lose{background:#fbefee;border-color:#f0d2cf}
+  .verdict .vi{font-size:20px}
+  .verdict .vt b{display:block;font-size:15px;line-height:1.3}
+  .verdict.win .vt b{color:var(--ok)} .verdict.lose .vt b{color:var(--bad)}
+  .verdict .vt small{font-size:12px;color:var(--ink2)}
+  .verdict .rn{margin-left:auto;font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+
+  .drop{display:flex;align-items:center;gap:10px;border:1px solid #cfe6d6;background:#f3faf5;border-radius:var(--r-md);padding:9px 12px}
+  .drop .dl{font-size:12.5px;color:var(--ok);font-weight:600}
+  .drop .spacer{flex:1}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ===== v0.6 追加 ===== */
+
+  /* 主动技能卡（固定技能） */
+  .actcard{display:grid;grid-template-columns:46px 1fr;gap:12px;border:1px solid var(--pc);border-radius:var(--r-md);
+    padding:12px;background:color-mix(in srgb,var(--pc) 4%,#fff);box-shadow:inset 3px 0 0 var(--pc)}
+  .actcard .ic{width:46px;height:46px;border-radius:11px;display:grid;place-items:center;font-size:22px;
+    background:color-mix(in srgb,var(--pc) 13%,#fff);border:1px solid color-mix(in srgb,var(--pc) 30%,#fff)}
+  .actcard .h{display:flex;align-items:center;gap:7px}
+  .actcard .nm{font-weight:600;font-size:14px}
+  .actcard .lvb{font-size:11px;font-weight:600;color:#fff;background:var(--pc);border-radius:5px;padding:1px 6px}
+  .actcard .kind{margin-left:auto;font-size:11px;color:var(--pc);font-weight:600}
+  .actcard .desc{font-size:12px;color:var(--ink2);margin:3px 0 8px;line-height:1.5}
+  .actcard .ft{display:flex;gap:6px;align-items:center}
+
+  /* 关卡：分章 */
+  .chap{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--ink2);margin:4px 0 8px;letter-spacing:.06em}
+  .chap::after{content:"";flex:1;height:1px;background:var(--line2)}
+  .chap .aux{order:2;font-weight:400;color:var(--ink3);letter-spacing:0;font-variant-numeric:tabular-nums}
+  .lv{grid-template-columns:40px 1fr;gap:10px;padding:10px 11px;margin-bottom:8px}
+  .lv .idx{height:40px;font-size:13.5px}
+  .lv .t1{flex-wrap:wrap}
+  .lv .kd{font-size:10.5px;font-weight:600;border-radius:4px;padding:0 5px;border:1px solid var(--line);color:var(--ink3)}
+  .lv.elite{border-color:#e5c07b;background:linear-gradient(180deg,#fffaf0,#fff 55%)}
+  .lv.elite .idx{background:#fdf1d8;border-color:#ecd29c;color:#92400e}
+  .lv.elite .kd{border-color:#e5c07b;background:#fdf1d8;color:#92400e}
+  .lv.done .idx{background:#eaf5ed;border-color:#cde6d4;color:var(--ok)}
+  .lv.locked{background:var(--wash);border-style:dashed}
+  .lv.locked .ln,.lv.locked .hp{color:var(--ink3)}
+  .lv.locked .intents{opacity:.55}
+  .lv .meta{margin:5px 0 7px;align-items:center}
+  .lv .row{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .lv .rw{margin-right:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink3)}
+
+  /* 敌方行动循环 */
+  .intents{display:flex;flex-wrap:wrap;align-items:center;gap:3px}
+  .it{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;border-radius:5px;padding:1px 6px;
+    color:var(--fc);background:color-mix(in srgb,var(--fc) 9%,#fff);border:1px solid color-mix(in srgb,var(--fc) 18%,#fff);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .it .sub{font-weight:600;color:#b45309}
+  .intents .ar{font-size:10px;color:var(--ink3)}
+  .intents .loop{font-size:12px;color:var(--ink3);margin-left:3px}
+  .intents .nw{display:inline-flex;align-items:center;white-space:nowrap}
+
+  .bh .kd{font-size:10.5px;font-weight:600;border-radius:4px;padding:0 5px;border:1px solid #e5c07b;background:#fdf1d8;color:#92400e}
+  .bh .hp{font-size:12px;color:var(--ink2);margin-left:auto;font-variant-numeric:tabular-nums}
+
+  /* ===== v0.7 追加 / 覆盖 ===== */
+
+  /* 顶栏只保留重置 */
+  .topbar{justify-content:flex-end}
+
+  /* 货币移到「改造者」卡片的左右上角 */
+  .midhead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .midhead .ph{margin:0}
+  .midhead .spacer{flex:1}
+  .purse{padding:4px 13px 4px 5px}
+
+  /* 关卡章节页签 */
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 4px;
+    display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;font-size:12px}
+  .tab b{font-weight:600;font-size:12.5px;color:var(--ink2)}
+  .tab span{font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
+  .tab:hover:not(.on){border-color:#bcbab0;background:#faf9f5}
+  .tab.on{border-color:var(--ink);background:var(--ink)}
+  .tab.on b{color:#fff} .tab.on span{color:#c9c7be}
+  .tab.done b{color:var(--ok)}
+  .tab.on.done b{color:#a7e3ba}
+
+  /* 关卡：掉落说明 */
+  .lv .rw.none{color:var(--ink3)}
+
+  /* 部位面板头部的重置 */
+  .rhead .rs{font-size:11.5px;color:var(--ink3);border-color:transparent;background:transparent;padding:3px 7px}
+  .rhead .rs:hover:not(:disabled){color:var(--bad);background:#fbefee;border-color:transparent}
+
+  /* 卡内联强化确认（主动技能卡 / 芯片卡 / 部位重置 通用） */
+  .conf{background:var(--wash);border:1px solid var(--line2);border-radius:8px;
+    padding:6px 10px;margin-bottom:8px;display:grid;gap:3px}
+  .confrow{display:flex;align-items:baseline;gap:8px;font-size:12.5px}
+  .confrow .lbl{color:var(--ink2)}
+  .confrow .spacer{flex:1}
+  .confrow .from{color:var(--ink3);font-variant-numeric:tabular-nums}
+  .confrow .arrow{color:var(--ink3);font-size:11px}
+  .confrow .to{font-weight:600;color:var(--pc);font-variant-numeric:tabular-nums}
+  .ft .cost{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink2);margin-left:2px}
+  .ft .cost .have{color:var(--ink3);font-variant-numeric:tabular-nums}
+  .ft .cost.short .tk{color:var(--bad)}
+
+  /* 主动技能卡：等级徽标 + 满级 */
+  .actcard .max{font-size:11px;color:var(--ink3)}
+
+  /* 破甲相关 */
+  .tag{font-size:11.5px;border-radius:6px;padding:2px 7px;background:#f0efe9;color:var(--ink2);white-space:nowrap}
+  .hpbar{height:8px;border-radius:5px;background:#ecebe5;overflow:hidden;margin-bottom:8px}
+  .hpbar > i{display:block;height:100%;background:#3f8f5f;border-radius:5px}
+  .chartcard.foe .hpbar > i{background:#c2410c}
+
+  /* ===== v0.8 追加 / 覆盖 ===== */
+
+  .app{max-width:1180px}
+  .topbar{justify-content:flex-end;margin-bottom:10px}
+
+  /* 两栏：左＝养成卡牌，右＝关卡/上下文；养成未解锁时单栏居中 */
+  .grid{grid-template-columns:minmax(0,1fr) 420px;gap:14px}
+  .grid.solo{grid-template-columns:minmax(0,460px);justify-content:center}
+  @media (max-width:1100px){.grid,.grid.solo{grid-template-columns:1fr}}
+
+  /* 养成卡牌头部：标题在左，两种货币都在右上角 */
+  .bhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .bhead .bt{font-size:12.5px;font-weight:600;color:var(--ink2);letter-spacing:.06em}
+  .bhead .spacer{flex:1}
+  .purse{padding:4px 12px 4px 5px;font-size:12.5px}
+  .purse b{font-size:14px}
+
+  /* 部位标注卡：补上主动技能的当前数值（属性面板已移除） */
+  .co-act .val{color:var(--ink2);font-variant-numeric:tabular-nums}
+
+  /* 章节页签 + 未开放提示 */
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 4px;
+    display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;font-size:12px}
+  .tab b{font-weight:600;font-size:12.5px;color:var(--ink2)}
+  .tab span{font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
+  .tab:hover:not(.on){border-color:#bcbab0;background:#faf9f5}
+  .tab.on{border-color:var(--ink);background:var(--ink)}
+  .tab.on b{color:#fff} .tab.on span{color:#c9c7be}
+  .tab.done b{color:var(--ok)}
+  .tab.on.done b{color:#a7e3ba}
+  .tab.lock{background:var(--wash);border-style:dashed}
+  .tabnote{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--bad);
+    background:#fbefee;border:1px solid #f0d2cf;border-radius:8px;padding:6px 10px;margin:-4px 0 10px}
+
+  /* 部位重置：做成显眼的独立按钮 */
+  .resetbar{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line2)}
+  button.danger{width:100%;justify-content:center;border-color:#e2b6b2;color:var(--bad);
+    background:#fdf5f4;font-weight:600;padding:8px 12px}
+  button.danger:hover:not(:disabled){background:#fbeae8;border-color:var(--bad)}
+  .resetbar .rf{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink3);
+    justify-content:center;margin-top:5px}
+
+  /* ===== 结算：伤害流向 / 承伤来源 ===== */
+  .flow{margin-bottom:12px}
+  .flow .fh{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--ink2);margin-bottom:5px}
+  .flow .fh b{font-size:14px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .flow .fh .unit{font-size:11px;color:var(--ink3)}
+  .bar{display:flex;height:15px;border-radius:8px;overflow:hidden;background:#ecebe5}
+  .bar > i{display:block;height:100%}
+  .legend{display:grid;gap:2px;margin-top:7px}
+  .legend > span{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);padding:1px 0}
+  .legend .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .legend .v{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .legend .pct{color:var(--ink3);font-size:11.5px;min-width:3.4em;text-align:right;font-variant-numeric:tabular-nums}
+  .legend > span.top{background:#f6f5f0;border-radius:6px;padding:2px 6px;margin:0 -6px}
+  .legend > span.top .nm,.legend > span.top .v{font-weight:600;color:var(--ink)}
+
+  .sect.sm{margin:14px 0 7px}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px;color:var(--ink2)}
+  .kpis span{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid var(--line2);padding-bottom:3px}
+  .kpis b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+
+  .chartcard{border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px 6px;margin-bottom:9px;background:#fff}
+  .chartcard.foe{background:#fffbf8}
+  .chartcard .ch{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  .chartcard .cn{font-weight:600;font-size:13px}
+  .chartcard .hpn{margin-left:auto;font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .chartcard .hpn b{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <button class="ghost" id="btn-reset">重置</button>
+  </header>
+
+  <div class="grid" id="grid">
+    <section class="panel" id="colBuild">
+      <div class="bhead">
+        <span class="bt">改造者</span>
+        <span class="spacer"></span>
+        <div class="purse"><span class="cur mod">改</span>改装件 <b id="r-mod">3</b></div>
+        <div class="purse"><span class="cur body">躯</span>躯体材料 <b id="r-body">0</b></div>
+      </div>
+      <div class="stagewrap"><div class="stage" id="stage"></div></div>
+    </section>
+
+    <aside class="panel" id="colRight"></aside>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+const PILOT = "__PILOT_B64__";
+
+/* ================= 主动技能（固定，不可替换；改装件强化 Lv.1→4） ================= */
+const ACTIVES = {
+  punch:{id:"punch", part:"arm", name:"重拳", icon:"👊", kind:"攻击", dmg:[20,26,33,41],
+         text:lv=>`造成 ${ACTIVES.punch.dmg[lv-1]} 点伤害`,
+         brief:lv=>`${ACTIVES.punch.dmg[lv-1]} 伤害`,
+         diff:lv=>[{l:"伤害", f:ACTIVES.punch.dmg[lv-1], t:ACTIVES.punch.dmg[lv]}]},
+  brace:{id:"brace", part:"torso", name:"硬抗", icon:"🛡️", kind:"防御", now:[12,16,20,25], per:[5,7,9,11], dur:3,
+         text:lv=>`立即获得 ${ACTIVES.brace.now[lv-1]} 点护盾，之后 3 回合每回合开始获得 ${ACTIVES.brace.per[lv-1]} 点护盾`,
+         brief:lv=>`${ACTIVES.brace.now[lv-1]} + ${ACTIVES.brace.per[lv-1]}×3 护盾`,
+         diff:lv=>[{l:"立即护盾", f:ACTIVES.brace.now[lv-1], t:ACTIVES.brace.now[lv]},
+                   {l:"每回合护盾", f:ACTIVES.brace.per[lv-1], t:ACTIVES.brace.per[lv]}]}
+};
+const PART_ACTIVE = {arm:"punch", torso:"brace", head:null};
+const ACT_MAX = 4, ACT_UP_COST = [2,3,4];
+
+/* ================= 被动芯片（cost 1，Lv.1→2；默认全部未解锁） ================= */
+const PASSIVES = {
+  breaker:{id:"breaker",part:"arm",   name:"破阵模块", icon:"💥", v:[2,3],   price:1, tag:"破盾",
+           text:v=>`攻击对护盾造成 ${v} 倍伤害`,             lbl:"对护盾倍率", fmt:v=>"×"+v},
+  leech:  {id:"leech",  part:"arm",   name:"汲能回路", icon:"🩸", v:[30,50], price:2, tag:"吸血",
+           text:v=>`攻击造成的本体伤害中 ${v}% 转化为生命`,   lbl:"吸血",     fmt:v=>v+"%"},
+  regen:  {id:"regen",  part:"torso", name:"生体再生", icon:"💚", v:[6,10],  price:2, tag:"回复",
+           text:v=>`每次获得护盾时，回复 ${v} 点生命`,        lbl:"回复",     fmt:v=>"+"+v},
+  thorn:  {id:"thorn",  part:"torso", name:"反应装甲", icon:"🌵", v:[5,8],   price:2, tag:"反伤",
+           text:v=>`每次受到攻击，对攻击者造成 ${v} 点伤害`,   lbl:"反伤",     fmt:v=>v+" / 次"},
+  focus:  {id:"focus",  part:"head",  name:"凝神",     icon:"✨", v:[6,10],  price:2, tag:"增伤", cap:5,
+           text:v=>`每次攻击后伤害 +${v}%，最多叠加 5 层`,    lbl:"每层增伤", fmt:v=>"+"+v+"%"},
+  filter: {id:"filter", part:"head",  name:"滤波",     icon:"🧹", v:[1,2],   price:2, tag:"净化",
+           text:v=>`每回合末清除自身 ${v} 层减益`,           lbl:"每回合清除", fmt:v=>v+" 层"},
+  damper: {id:"damper", part:"head",  name:"缓冲模块", icon:"🧱", v:[25,40], price:2, tag:"减伤",
+           text:v=>`持有护盾时，受到的伤害 −${v}%`,          lbl:"减伤",     fmt:v=>"−"+v+"%"}
+};
+const CHIP_ORDER = ["breaker","leech","regen","thorn","focus","filter","damper"];
+const PAS_MAX = 2;
+const pasText = (id, lv) => PASSIVES[id].text(PASSIVES[id].v[lv-1]);
+const JAM_PER = 0.15, JAM_CAP = 5, ROUND_CAP = 15, HP_BASE = 100;
+
+const PARTS = {
+  arm:  {name:"手臂", role:"攻击", cap0:1, capMax:1, x:19, y:70, cardY:85},
+  torso:{name:"躯干", role:"承伤", cap0:0, capMax:1, x:63, y:56, cardY:50},
+  head: {name:"头脑", role:"辅助", cap0:0, capMax:2, x:48, y:16, cardY:14}
+};
+const PART_ORDER = ["head","torso","arm"];
+const CAP0 = {arm:1, torso:0, head:0};
+const DCOLOR = {arm:"#c2410c", torso:"#1d4ed8", head:"#7c3aed"};
+const PRICE = { upgradePas:1, costUp:1 };
+/* 立绘舞台尺寸（立绘原图 740×780） */
+const CARD_W = 244, CARD_GAP = 36;
+let PW = 320, PH = 337, CARD_X = PW + CARD_GAP, STAGE_W = CARD_X + CARD_W;
+function fitStage(){
+  const box = $("colBuild"), avail = (box && box.clientWidth) ? box.clientWidth - 30 : 660;
+  PW = Math.max(230, Math.min(360, avail - CARD_GAP - CARD_W));
+  PH = Math.round(PW*780/740); CARD_X = PW + CARD_GAP; STAGE_W = CARD_X + CARD_W;
+}
+
+/* ================= 关卡 ================= */
+/* pattern 循环执行：atk 每段伤害 hits 段数 jam 干扰层数 charge 蓄力 heavy 重击 pierce 破甲 */
+const LEVELS = {
+  "1-1":{ch:1, elite:false, name:"巡逻无人机", hp:90,  pattern:[{atk:9}]},
+  "1-2":{ch:1, elite:false, name:"盾卫哨兵",   hp:42,  shield:26, pattern:[{atk:18}]},
+  "1-E":{ch:1, elite:true,  name:"蜂群母舰",   hp:60,  shield:28, pattern:[{atk:18},{atk:18},{atk:9,hits:2}]},
+  "2-1":{ch:2, elite:false, name:"碎甲工兵",   hp:102, shield:8,  pattern:[{atk:21},{atk:30,pierce:true}]},
+  "2-2":{ch:2, elite:false, name:"链锯猎犬",   hp:112, shield:10, pattern:[{atk:6,hits:3,pierce:true}]},
+  "2-E":{ch:2, elite:true,  name:"攻城执行者", hp:80,  shield:10, pattern:[{atk:21},{atk:12,hits:3},{charge:true},{atk:78,heavy:true,pierce:true}]},
+  "3-1":{ch:3, elite:false, name:"信号干扰者", hp:120, pattern:[{atk:27,jam:1}]},
+  "3-2":{ch:3, elite:false, name:"电磁压制者", hp:140, pattern:[{atk:33,jam:1}]},
+  "3-E":{ch:3, elite:true,  name:"中枢主脑",   hp:110, shield:10, pattern:[{atk:20,jam:2},{atk:9,hits:3,jam:1},{charge:true},{atk:63,heavy:true,pierce:true}]}
+};
+const LEVEL_ORDER = ["1-1","1-2","1-E","2-1","2-2","2-E","3-1","3-2","3-E"];
+const CHAPTERS = {1:"第一章 · 外围防线", 2:"第二章 · 重工区", 3:"第三章 · 中枢"};
+const CH_SHORT = {1:"第一章", 2:"第二章", 3:"第三章"};
+const DROPS = { normal:{mod:1, body:0}, elite:{mod:3, body:2} };
+/* 个别关卡单独配置奖励；未列出的按 normal / elite 取值 */
+const DROP_OVERRIDE = { "2-E":{mod:3, body:1}, "3-E":{mod:0, body:0} };
+const dropOf = key => DROP_OVERRIDE[key] || (LEVELS[key].elite ? DROPS.elite : DROPS.normal);
+const hasDrop = key => { const d = dropOf(key); return d.mod > 0 || d.body > 0; };
+
+/* ================= 图标与配色 ================= */
+const IT = { atk:{e:"⚔️",c:"#57534e"}, multi:{e:"🔪",c:"#c2410c"}, charge:{e:"⏳",c:"#b45309"},
+             heavy:{e:"⚡",c:"#b91c1c"}, pierce:{e:"🪓",c:"#9a3412"}, shield:{e:"🛡️",c:"#1d4ed8"} };
+const FX = { shield:{e:"🛡️",c:"#1d4ed8"}, heal:{e:"💚",c:"#15803d"}, buff:{e:"✨",c:"#15803d"},
+             debuff:{e:"⚠️",c:"#b45309"}, burst:{e:"⚡",c:"#b91c1c"}, pierce:{e:"🪓",c:"#9a3412"},
+             thorn:{e:"🌵",c:"#4d7c0f"}, clean:{e:"🧹",c:"#0f766e"} };
+const EM = {atk:"⚔️", taken:"💢", shield:"🛡️", heal:"💚", buff:"✨", debuff:"⚠️", burst:"⚡",
+            breach:"💥", pierce:"🪓", hp:"❤️", round:"🔄", thorn:"🌵", clean:"🧹", fist:"👊", block:"🧱"};
+const CLR = { body:"#3f8f5f", absorb:"#1d4ed8", jam:"#b45309",
+              pierced:"#9a3412", normal:"#c2410c", blocked:"#1d4ed8", cut:"#0f766e" };
+
+/* ================= 战斗属性 ================= */
+function statsOf(cfg){
+  const v = id => cfg.chips[id] ? PASSIVES[id].v[cfg.chips[id]-1] : 0;
+  return {
+    hpMax:HP_BASE, atk:ACTIVES.punch.dmg[cfg.punch-1],
+    shNow:ACTIVES.brace.now[cfg.brace-1], shPer:ACTIVES.brace.per[cfg.brace-1],
+    breaker:v("breaker")||1, leech:v("leech"), regen:v("regen"), thorn:v("thorn"),
+    focus:v("focus"), filter:v("filter"), damper:v("damper")
+  };
+}
+
+/* ================= 战斗演算（完全确定性：同关同配装结果一致） ================= */
+/* 每回合改造者只执行一个行动。固定行为：本回合敌方重击 或 硬抗持续护盾已结束 → 防御；否则 → 攻击 */
+function simulateCfg(key, cfg){
+  const L = LEVELS[key], S = statsOf(cfg);
+  let hp = S.hpMax, ehp = L.hp, eSh = 0, pSh = 0, buff = 0, jam = 0, stacks = 0;
+  const K = {atk:0, def:0, total:0, body:0, absorb:0, jamLoss:0, shieldGen:0, shGot:0,
+             spentOnShield:0, blocked:0, taken:0, pierced:0, cut:0, healed:0, leech:0, regen:0, thorn:0,
+             jamMax:0, cleared:0, burst:0};
+  const history = [{r:0, pHp:hp, eHp:ehp, pMarks:[], eMarks:[]}];
+  let win = false, dead = false, round = 0;
+
+  for (round = 1; round <= ROUND_CAP; round++){
+    const it = L.pattern[(round-1) % L.pattern.length];
+    const pM = [], eM = [];
+    const gain = v => {
+      pSh += v; K.shGot += v; pM.push("shield");
+      if (S.regen && hp < S.hpMax){
+        const g = Math.min(S.regen, S.hpMax - hp); hp += g; K.healed += g; K.regen += g; pM.push("heal");
+      }
+    };
+
+    const hadBuff = buff > 0;
+    if (hadBuff){ buff--; gain(S.shPer); }
+    if (L.shield){ eSh = L.shield; K.shieldGen += L.shield; eM.push("shield"); }
+
+    const defend = !!it.heavy || !hadBuff;
+    if (defend){ K.def++; buff = ACTIVES.brace.dur; gain(S.shNow); }
+    else {
+      K.atk++;
+      const full = Math.floor(S.atk * (1 + stacks*S.focus/100));
+      const d = Math.floor(full * (1 - jam*JAM_PER));
+      K.jamLoss += full - d;
+      let body = d, ab = 0;
+      if (eSh > 0){
+        const need = eSh / S.breaker;
+        if (d <= need){ ab = d*S.breaker; eSh -= ab; body = 0; }
+        else { ab = eSh; body = Math.floor(d - need); eSh = 0; }
+      }
+      K.total += d; K.absorb += ab; K.body += body; K.spentOnShield += d - body; ehp -= body;
+      if (S.leech && body > 0 && hp < S.hpMax){
+        const g = Math.min(Math.floor(body*S.leech/100), S.hpMax - hp);
+        if (g > 0){ hp += g; K.healed += g; K.leech += g; pM.push("heal"); }
+      }
+      if (S.focus && stacks < PASSIVES.focus.cap){ stacks++; pM.push("buff"); }
+      if (ehp <= 0) win = true;
+    }
+
+    if (!win){
+      if (it.charge) eM.push("burst");
+      else {
+        const hits = it.hits || 1;
+        let raw = 0, thornSum = 0;
+        for (let h = 0; h < hits; h++){
+          let dmg = it.atk, abs = 0;
+          if (it.pierce) K.pierced += dmg;
+          else {
+            if (S.damper && pSh > 0){ const nd = Math.round(dmg*(1 - S.damper/100)); K.cut += dmg-nd; dmg = nd; }
+            abs = Math.min(pSh, dmg); pSh -= abs; K.blocked += abs;
+          }
+          const net = dmg - abs; hp -= net; K.taken += net; raw += it.atk;
+          if (it.heavy) K.burst += net;
+          if (hp <= 0){ dead = true; break; }
+          if (S.thorn){ ehp -= S.thorn; K.thorn += S.thorn; thornSum += S.thorn; if (ehp <= 0){ win = true; break; } }
+        }
+        if (it.heavy && raw > 0) pM.push("burst");
+        if (it.pierce && raw > 0) pM.push("pierce");
+        if (thornSum) eM.push("thorn");
+        if (!dead && !win && it.jam){
+          jam = Math.min(JAM_CAP, jam + it.jam); K.jamMax = Math.max(K.jamMax, jam); pM.push("debuff");
+        }
+      }
+    }
+
+    if (!win && !dead && S.filter && jam > 0){
+      const c = Math.min(S.filter, jam); jam -= c; K.cleared += c; pM.push("clean");
+    }
+
+    history.push({r:round, pHp:Math.max(0,hp), eHp:Math.max(0,ehp),
+                  pMarks:[...new Set(pM)].slice(0,2), eMarks:[...new Set(eM)].slice(0,2)});
+    if (win || dead) break;
+  }
+  const timedOut = !win && !dead;
+  return {levelKey:key, name:L.name, win, dead, timedOut, round: timedOut ? ROUND_CAP : round, kpi:K, history,
+          hpLeft:Math.max(0,hp), hpMax:S.hpMax, enemyHpLeft:Math.max(0,ehp), enemyHpMax:L.hp};
+}
+
+/* ================= 状态 ================= */
+function initialState(){
+  const un = {}, lv = {};
+  for (const id of CHIP_ORDER){ un[id] = false; lv[id] = 1; }
+  return {
+    res:{ mod:3, body:0 },
+    act:{ punch:1, brace:1 },
+    parts:{ arm:{bonus:0, chips:[]}, torso:{bonus:0, chips:[]}, head:{bonus:0, chips:[]} },
+    pasUnlocked:un, pasLv:lv,
+    cleared:{}, tab:1, tabNote:0, buildRevealed:false,
+    right:"levels", rightPrev:"levels", focusPart:null,
+    pending:null,                       /* 卡内联确认：{kind:"pas"|"act"|"reset", id} */
+    view:{ battle:null, gained:null }
+  };
+}
+let state = initialState();
+
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const capOf = pk => Math.min(PARTS[pk].capMax, PARTS[pk].cap0 + state.parts[pk].bonus);
+const usedOf = pk => state.parts[pk].chips.length;
+const hasSlot = pk => usedOf(pk) < capOf(pk);
+const isEquipped = id => PART_ORDER.some(pk=>state.parts[pk].chips.some(c=>c.id===id));
+const lvOf = id => state.pasLv[id] || 1;
+const canUpPart = pk => capOf(pk) < PARTS[pk].capMax;
+const isOpen = key => { const i = LEVEL_ORDER.indexOf(key); return i === 0 || !!state.cleared[LEVEL_ORDER[i-1]]; };
+const chOpen = ch => LEVEL_ORDER.filter(k=>LEVELS[k].ch===ch).some(isOpen);
+/* 养成板块：通过第一关、且从结算返回关卡列表之后才展开 */
+const buildOn = () => state.buildRevealed;
+function currentCfg(){
+  const chips = {};
+  for (const pk of PART_ORDER) for (const c of state.parts[pk].chips) chips[c.id] = lvOf(c.id);
+  return { punch:state.act.punch, brace:state.act.brace, chips };
+}
+function partRefund(pk){
+  let mod = 0, body = state.parts[pk].bonus * PRICE.costUp;
+  for (const id of CHIP_ORDER){
+    const d = PASSIVES[id]; if (d.part !== pk) continue;
+    if (state.pasUnlocked[id]) mod += d.price;
+    if (lvOf(id) > 1) mod += PRICE.upgradePas * (lvOf(id) - 1);
+  }
+  const aid = PART_ACTIVE[pk];
+  if (aid) for (let i = 1; i < state.act[aid]; i++) mod += ACT_UP_COST[i-1];
+  return {mod, body};
+}
+const canReset = pk => { const r = partRefund(pk); return r.mod > 0 || r.body > 0; };
+
+/* ================= 动作 ================= */
+function actUnlockPas(id){
+  if (state.pasUnlocked[id] || state.res.mod < PASSIVES[id].price) return;
+  state.res.mod -= PASSIVES[id].price; state.pasUnlocked[id] = true; render();
+}
+function actEquip(id){
+  if (!state.pasUnlocked[id] || isEquipped(id)) return;
+  const pk = PASSIVES[id].part;
+  if (!hasSlot(pk)) return;
+  state.parts[pk].chips.push({id}); render();
+}
+function actUnequip(id){
+  if (!isEquipped(id)) return;
+  const pk = PASSIVES[id].part;
+  state.parts[pk].chips = state.parts[pk].chips.filter(c=>c.id!==id); render();
+}
+function openConfirm(kind, id){
+  if (kind === "pas"){ if (!state.pasUnlocked[id] || lvOf(id) >= PAS_MAX) return; }
+  else if (kind === "act"){ if (state.act[id] >= ACT_MAX) return; }
+  state.pending = {kind, id}; render();
+}
+function closeConfirm(){ state.pending = null; render(); }
+function confirmPending(){
+  const p = state.pending; if (!p) return;
+  if (p.kind === "pas"){
+    if (state.res.mod < PRICE.upgradePas) return;
+    state.res.mod -= PRICE.upgradePas; state.pasLv[p.id] = lvOf(p.id) + 1;
+  } else if (p.kind === "act"){
+    const c = ACT_UP_COST[state.act[p.id]-1];
+    if (state.res.mod < c) return;
+    state.res.mod -= c; state.act[p.id]++;
+  } else if (p.kind === "reset"){
+    const pk = p.id, r = partRefund(pk);
+    state.res.mod += r.mod; state.res.body += r.body;
+    for (const id of CHIP_ORDER){
+      if (PASSIVES[id].part !== pk) continue;
+      state.pasUnlocked[id] = false; state.pasLv[id] = 1;
+    }
+    state.parts[pk].bonus = 0; state.parts[pk].chips = [];
+    const aid = PART_ACTIVE[pk]; if (aid) state.act[aid] = 1;
+  }
+  state.pending = null; render();
+}
+function actUpPart(pk){
+  if (!canUpPart(pk) || state.res.body < PRICE.costUp) return;
+  state.res.body -= PRICE.costUp; state.parts[pk].bonus++; render();
+}
+function openPart(pk){
+  if (state.right !== "part") state.rightPrev = (state.right==="battle" && state.view.battle) ? "battle" : "levels";
+  state.right = "part"; state.focusPart = pk; state.pending = null; render();
+}
+function closePart(){
+  if (state.right !== "part") return;
+  state.right = state.rightPrev || "levels"; state.focusPart = null; state.pending = null; render();
+}
+function pickTab(ch){
+  if (!chOpen(ch)){ state.tabNote = ch; render(); return; }
+  state.tab = ch; state.tabNote = 0; render();
+}
+/* 挑战：直接出结算（不再逐条播放），通过即自动入账 */
+function actFight(key){
+  if (!isOpen(key)) return;
+  const sim = simulateCfg(key, currentCfg());
+  const first = !state.cleared[key];
+  const gained = (sim.win && first && hasDrop(key)) ? dropOf(key) : null;
+  if (sim.win){
+    state.cleared[key] = true;
+    if (gained){ state.res.mod += gained.mod; state.res.body += gained.body; }
+    const next = LEVEL_ORDER[LEVEL_ORDER.indexOf(key)+1];
+    if (next) state.tab = LEVELS[next].ch;
+  }
+  state.view = { battle:sim, gained };
+  state.right = "battle"; state.focusPart = null; state.pending = null; state.tabNote = 0;
+  render();
+}
+
+/* ================= 敌方行动循环 ================= */
+function intentChip(p){
+  if (p.charge) return `<span class="it" style="--fc:${IT.charge.c}">${IT.charge.e} 蓄力</span>`;
+  const k = p.heavy ? "heavy" : p.pierce ? "pierce" : (p.hits||1) > 1 ? "multi" : "atk";
+  const v = (p.hits||1) > 1 ? `${p.hits}×${p.atk}` : `${p.atk}`;
+  const lb = p.heavy ? (p.pierce ? "重击破甲 " : "重击 ") : p.pierce ? "破甲 " : "";
+  return `<span class="it" style="--fc:${IT[k].c}">${IT[k].e} ${lb}${v}${p.jam?` <span class="sub">⚠️${p.jam}</span>`:""}</span>`;
+}
+function intentsHTML(L){
+  const chips = L.pattern.map(intentChip);
+  if (L.pattern.length > 1) chips[chips.length-1] = `<span class="nw">${chips[chips.length-1]}<span class="loop">↻</span></span>`;
+  const seq = chips.join(`<span class="ar">›</span>`);
+  return `<div class="intents">${L.shield?`<span class="it" style="--fc:${IT.shield.c}">🛡️ 每回合 ${L.shield}</span><span class="ar">·</span>`:""}${seq}</div>`;
+}
+
+/* ================= 血量曲线（带 回合–生命值 坐标轴） ================= */
+function chartSVG(hist, key, mkKey, color, maxHp){
+  const W=348, H=164, P={l:46, r:12, t:12, b:38};
+  const n = hist.length, max = Math.max(maxHp,1);
+  const X = i => P.l + (W-P.l-P.r)*(n<2?0:i/(n-1));
+  const Y = v => P.t + (H-P.t-P.b)*(1-v/max);
+  let grid = "";
+  [0,.5,1].forEach(f=>{
+    const y = Y(max*f);
+    grid += `<line x1="${P.l}" y1="${y.toFixed(1)}" x2="${(W-P.r).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${f===0?"#d6d4cb":"#efeee9"}" stroke-width="1"/>`
+         +  `<text x="${P.l-7}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="#8d8b83">${Math.round(max*f)}</text>`;
+  });
+  grid += `<line x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${(H-P.b).toFixed(1)}" stroke="#d6d4cb" stroke-width="1"/>`;
+  /* 坐标轴说明 */
+  const axis = `<text transform="rotate(-90 12 ${(P.t+(H-P.t-P.b)/2).toFixed(1)})" x="12" y="${(P.t+(H-P.t-P.b)/2+4).toFixed(1)}"
+      text-anchor="middle" font-size="10.5" fill="#6f6d66">生命值</text>
+    <text x="${((P.l+W-P.r)/2).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="10.5" fill="#6f6d66">回合数</text>`;
+  let xt = "";
+  hist.forEach((d,i)=>{ if(i===0) return;
+    xt += `<text x="${X(i).toFixed(1)}" y="${H-P.b+15}" text-anchor="middle" font-size="9.5" fill="#8d8b83">${d.r}</text>`; });
+  const path = hist.map((d,i)=>`${i?"L":"M"}${X(i).toFixed(1)} ${Y(d[key]).toFixed(1)}`).join(" ");
+  const area = `${path} L${X(n-1).toFixed(1)} ${Y(0).toFixed(1)} L${X(0).toFixed(1)} ${Y(0).toFixed(1)} Z`;
+  let dots = "", marks = "";
+  hist.forEach((d,i)=>{
+    if (i===0) return;
+    dots += `<circle cx="${X(i).toFixed(1)}" cy="${Y(d[key]).toFixed(1)}" r="2.6" fill="#fff" stroke="${color}" stroke-width="1.5"/>`;
+    (d[mkKey]||[]).forEach((m,k)=>{
+      if (!FX[m]) return;
+      const y = ((i+k)%2===0) ? Y(d[key])-12 : Y(d[key])+17;
+      if (y < 10 || y > H-P.b) return;
+      marks += `<text x="${X(i).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="10.5">${FX[m].e}</text>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">
+    ${grid}${axis}${xt}
+    <path d="${area}" fill="${color}" fill-opacity=".07" stroke="none"/>
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>
+    ${dots}${marks}
+  </svg>`;
+}
+
+/* ================= 结算 ================= */
+/* 堆叠条：总量拆成若干去向，零值不显示，占比最大的一项高亮 */
+function flowHTML(title, unit, segs){
+  /* 核心项（keep）即便为 0 也保留——"本体命中 0"本身就是结论；
+     其余与本局无关的项（未携带对应机制）一律不显示 */
+  const total = segs.reduce((a,s)=>a+s.v, 0);
+  if (!total) return "";
+  segs = segs.filter(s=>s.v > 0 || s.keep);
+  const max = Math.max(...segs.map(s=>s.v));
+  return `<div class="flow">
+    <div class="fh">${title}<b>${total}</b><span class="unit">${unit}</span></div>
+    <div class="bar">${segs.map(s=>`<i style="width:${(s.v/total*100).toFixed(1)}%;background:${s.c}"></i>`).join("")}</div>
+    <div class="legend">${segs.map(s=>`<span class="${s.v===max?"top":""}">
+      <i class="sw" style="background:${s.c}"></i><span class="nm">${s.e} ${s.n}</span>
+      <span class="v">${s.v}</span><span class="pct">${Math.round(s.v/total*100)}%</span></span>`).join("")}</div>
+  </div>`;
+}
+function summaryHTML(sim){
+  const k = sim.kpi;
+  const verdict = sim.win
+    ? `<div class="verdict win"><span class="vi">${EM.hp}</span><div class="vt"><b>通过</b><small>${sim.name} 被击毁</small></div>`
+    : sim.dead ? `<div class="verdict lose"><span class="vi">${EM.taken}</span><div class="vt"><b>失败</b><small>改造者阵亡</small></div>`
+    : `<div class="verdict lose"><span class="vi">${EM.round}</span><div class="vt"><b>失败</b><small>回合耗尽，敌人仍剩 ${sim.enemyHpLeft} 生命</small></div>`;
+
+  const out = flowHTML("我的输出去向", "点伤害", [
+    {n:"打在本体上",   e:EM.atk,    v:k.body,          c:CLR.body, keep:true},
+    {n:"用于击破护盾", e:EM.shield, v:k.spentOnShield, c:CLR.absorb},
+    {n:"被干扰削减",   e:EM.debuff, v:k.jamLoss,       c:CLR.jam}
+  ]);
+  const inc = flowHTML("我承受的伤害来源", "点", [
+    {n:"破甲直击生命", e:EM.pierce, v:k.pierced,          c:CLR.pierced},
+    {n:"常规扣除生命", e:EM.taken,  v:k.taken - k.pierced, c:CLR.normal, keep:true},
+    {n:"被护盾吸收",   e:EM.shield, v:k.blocked,          c:CLR.blocked},
+    {n:"被缓冲抵消",   e:EM.block,  v:k.cut,              c:CLR.cut}
+  ]);
+
+  const kpis = [
+    [EM.fist,   "攻击次数",     k.atk],
+    [EM.shield, "防御次数",     k.def],
+    [EM.shield, "累计获得护盾", k.shGot],
+    [EM.heal,   "生体再生回复", k.regen],
+    [EM.heal,   "汲能回路吸血", k.leech],
+    [EM.thorn,  "反应装甲反伤", k.thorn],
+    [EM.clean,  "清除减益层数", k.cleared],
+    [EM.debuff, "干扰最高层数", k.jamMax],
+    [EM.burst,  "重击造成伤害", k.burst],
+    [EM.shield, "敌方护盾生成", k.shieldGen],
+    [EM.breach, "击碎敌方护盾值", k.absorb]
+  ].filter(r=>r[2] > 0);
+
+  const card = (cls, name, cur, max, chart) => `<div class="chartcard ${cls}">
+      <div class="ch"><span class="cn">${name}</span><span class="hpn">${EM.hp} <b>${cur}</b> / ${max}</span></div>
+      <div class="hpbar"><i style="width:${Math.max(0,Math.min(100,cur/max*100)).toFixed(1)}%"></i></div>
+      ${chart}</div>`;
+
+  return `${verdict}<span class="rn">${EM.round} 共 ${sim.round} 回合</span></div>
+    ${out}${inc}
+    <div class="sect sm">血量变化</div>
+    ${card("", "改造者", sim.hpLeft, sim.hpMax, chartSVG(sim.history, "pHp", "pMarks", "#1d4ed8", sim.hpMax))}
+    ${card("foe", sim.name, sim.enemyHpLeft, sim.enemyHpMax, chartSVG(sim.history, "eHp", "eMarks", "#c2410c", sim.enemyHpMax))}
+    ${kpis.length ? `<div class="sect sm">其它记录</div>
+      <div class="kpis">${kpis.map(([e,t,v])=>`<span>${e} ${t} <b>${v}</b></span>`).join("")}</div>` : ""}`;
+}
+
+/* ================= 通用片段 ================= */
+const tok = (kind, n, short) => `<span class="tk ${short?"short":""}"><span class="cur ${kind}">${kind==="mod"?"改":"躯"}</span>${n}</span>`;
+const pcStyle = pk => `--pc:${DCOLOR[pk]}`;
+const costHTML = (kind, n, have) => `<span class="cost ${have<n?"short":""}">消耗 ${tok(kind, n, have<n)}<span class="have">/${have}</span></span>`;
+function slotsHTML(pk, size){
+  const PP = PARTS[pk], cap = capOf(pk), eq = state.parts[pk].chips;
+  let out = "", firstLocked = true;
+  for (let i=0;i<PP.capMax;i++){
+    if (i < eq.length){
+      const c = PASSIVES[eq[i].id];
+      out += size==="lg"
+        ? `<div class="sl used"><span class="si">${c.icon}</span><span class="sn">${c.name}</span><span class="slv">Lv.${lvOf(c.id)}</span></div>`
+        : `<div class="sl used" title="${c.name}">${c.icon}<span class="slv">${lvOf(c.id)}</span></div>`;
+    } else if (i < cap){
+      out += size==="lg" ? `<div class="sl free"><span class="sn">空</span></div>` : `<div class="sl free"></div>`;
+    } else if (size==="lg" && firstLocked){
+      firstLocked = false;
+      const short = state.res.body < PRICE.costUp;
+      out += `<button class="sl locked" data-act="part" data-pk="${pk}" ${short?"disabled":""}>
+          <span class="sn">+1 格</span>${tok("body", PRICE.costUp, short)}</button>`;
+    } else {
+      out += `<div class="sl locked"><span class="lki">🔒</span></div>`;
+    }
+  }
+  return `<div class="slots ${size}">${out}</div>`;
+}
+function confHTML(rows, pk){
+  return `<div class="conf" style="${pcStyle(pk)}">${rows.map(r=>
+    `<div class="confrow"><span class="lbl">${r.l}</span><span class="spacer"></span>
+      <span class="from">${r.f}</span><span class="arrow">→</span><span class="to">${r.t}</span></div>`).join("")}</div>`;
+}
+
+/* ================= 左栏：养成卡牌 ================= */
+function cardCenters(hts){
+  const GAP = 10, out = {};
+  let prevBottom = 0;
+  for (const pk of PART_ORDER){
+    const h = hts[pk];
+    const c = Math.max(PARTS[pk].cardY/100*PH, prevBottom + GAP + h/2, h/2 + 2);
+    out[pk] = c; prevBottom = c + h/2;
+  }
+  return {c:out, h:Math.max(PH, Math.ceil(prevBottom + 2))};
+}
+function renderStage(){
+  const st = $("stage"); if (!st) return;
+  fitStage();
+  let dots = "", cards = "";
+  for (const pk of PART_ORDER){
+    const PP = PARTS[pk], cap = capOf(pk), used = usedOf(pk);
+    const sel = (state.focusPart===pk && state.right==="part");
+    const aid = PART_ACTIVE[pk], act = aid ? ACTIVES[aid] : null;
+    dots += `<button class="dot ${sel?"sel":""}" data-act="openPart" data-pk="${pk}" aria-label="${PP.name}"
+        style="left:${PP.x}%;top:${PP.y}%;background:${DCOLOR[pk]};${pcStyle(pk)}"></button>`;
+    cards += `<div class="callout ${sel?"sel":""}" data-act="openPart" data-pk="${pk}" data-card="${pk}"
+        style="left:${CARD_X}px;top:${(PP.cardY/100*PH).toFixed(1)}px;${pcStyle(pk)}">
+        <div class="co-h"><span class="pd"></span><b>${PP.name}</b><span class="role">${PP.role}</span><span class="cnt">${used} / ${cap}</span></div>
+        ${act ? `<div class="co-act"><span class="lb">${act.kind}</span>${act.icon} <b>${act.name}</b>
+                  <span class="val">Lv.${state.act[aid]} · ${act.brief(state.act[aid])}</span></div>` : ""}
+        ${slotsHTML(pk, "sm")}
+      </div>`;
+  }
+  st.innerHTML = `
+    <div class="portrait" style="width:${PW}px;height:${PH}px">
+      <img src="${PILOT}" alt="改造者立绘">${dots}
+    </div>
+    <svg class="lead" id="leadsvg"></svg>
+    ${cards}`;
+  st.style.width = STAGE_W+"px";
+
+  const hts = {};
+  for (const pk of PART_ORDER){
+    const el = st.querySelector ? st.querySelector(`[data-card="${pk}"]`) : null;
+    hts[pk] = (el && el.offsetHeight) || (PART_ACTIVE[pk] ? 104 : 80);
+  }
+  const CC = cardCenters(hts);
+  let leads = "";
+  for (const pk of PART_ORDER){
+    const PP = PARTS[pk], sel = (state.focusPart===pk && state.right==="part");
+    const x1 = PP.x/100*PW, y1 = PP.y/100*PH, y2 = CC.c[pk];
+    const el = st.querySelector ? st.querySelector(`[data-card="${pk}"]`) : null;
+    if (el) el.style.top = y2.toFixed(1)+"px";
+    leads += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${CARD_X}" y2="${y2.toFixed(1)}"
+                    stroke="${DCOLOR[pk]}" stroke-opacity="${sel?".9":".45"}" stroke-width="${sel?1.6:1.2}"/>
+              <circle cx="${CARD_X}" cy="${y2.toFixed(1)}" r="2.5" fill="${DCOLOR[pk]}" fill-opacity="${sel?"1":".6"}"/>`;
+  }
+  const svg = $("leadsvg");
+  if (svg && svg.setAttribute){
+    svg.setAttribute("width", STAGE_W); svg.setAttribute("height", CC.h);
+    svg.setAttribute("viewBox", `0 0 ${STAGE_W} ${CC.h}`);
+    svg.innerHTML = leads;
+  }
+  st.style.height = CC.h+"px";
+}
+
+/* ================= 右栏 ================= */
+function renderRight(){
+  const box = $("colRight");
+  if (state.right === "part" && state.focusPart && buildOn()){ box.innerHTML = partPanel(state.focusPart); return; }
+  if (state.right === "battle" && state.view.battle){ box.innerHTML = battlePanel(); return; }
+  box.innerHTML = levelsPanel();
+}
+
+function levelsPanel(){
+  const started = buildOn();
+  let html = `<div class="rhead"><span class="rt">关卡</span></div>`;
+  if (started){
+    html += `<div class="tabs">${[1,2,3].map(ch=>{
+      const keys = LEVEL_ORDER.filter(k=>LEVELS[k].ch===ch);
+      const n = keys.filter(k=>state.cleared[k]).length, open = chOpen(ch);
+      return `<button class="tab ${state.tab===ch?"on":""} ${n===keys.length?"done":""} ${open?"":"lock"}" data-act="tab" data-ch="${ch}">
+          <b>${CH_SHORT[ch]}</b><span>${open?`${n} / ${keys.length}`:"🔒 未开放"}</span></button>`;
+    }).join("")}</div>`;
+    if (state.tabNote) html += `<div class="tabnote">🔒 ${CH_SHORT[state.tabNote]}尚未开放，需要先通关上一章节</div>`;
+    html += `<div class="chap">${CHAPTERS[state.tab]}</div>`;
+  }
+  for (const key of LEVEL_ORDER){
+    const L = LEVELS[key];
+    if (started){ if (L.ch !== state.tab) continue; }
+    else if (!isOpen(key)) continue;          /* 首关通过前：只显示当前可挑战的关卡 */
+    const done = !!state.cleared[key], open = isOpen(key);
+    const drop = dropOf(key), any = hasDrop(key);
+    const cls = [L.elite?"elite":"", done?"done":"", open?"":"locked"].join(" ");
+    html += `<div class="lv ${cls}">
+        <div class="idx">${done?"✓":open?key:"🔒"}</div>
+        <div>
+          <div class="t1"><span class="ln">${L.name}</span><span class="kd">${L.elite?"精英":"普通"}</span>
+            <span class="st">${done?"已通过":open?"未通过":"未开放"}</span></div>
+          <div class="meta"><span class="hp">${EM.hp} ${L.hp}</span>${intentsHTML(L)}</div>
+          <div class="row">
+            <span class="rw ${(done||!any)?"none":""}">${!any ? "无通关奖励"
+              : done ? "奖励已领取"
+              : `首通 ${tok("mod","+"+drop.mod)}${drop.body?tok("body","+"+drop.body):""}`}</span>
+            <button class="pri" data-act="fight" data-key="${key}" ${open?"":"disabled"}>${done?"再战":"挑战"}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  return html;
+}
+
+function battlePanel(){
+  const sim = state.view.battle, g = state.view.gained, L = LEVELS[sim.levelKey];
+  return `<div class="rhead">
+      <span class="rt">战斗结算</span><span class="spacer"></span>
+      <button class="tiny" data-act="back">← 返回关卡</button>
+      <button class="tiny" data-act="again" data-key="${sim.levelKey}">再战</button>
+    </div>
+    <div class="bh"><span class="ln">${sim.levelKey} · ${sim.name}</span>${L.elite?`<span class="kd">精英</span>`:""}
+      <span class="hp">${EM.hp} ${L.hp}</span></div>
+    <div style="margin:-2px 0 10px">${intentsHTML(L)}</div>
+    ${summaryHTML(sim)}
+    ${g ? `<div class="drop" style="margin-top:10px"><span class="dl">奖励已领取</span>
+            ${tok("mod","+"+g.mod)}${g.body?tok("body","+"+g.body):""}</div>`
+        : sim.win ? `<div class="muted" style="margin-top:10px">${hasDrop(sim.levelKey) ? "已通过（奖励已领取）" : "已通过；本关无通关奖励"}</div>` : ""}`;
+}
+
+function partPanel(pk){
+  const PP = PARTS[pk], cap = capOf(pk), used = usedOf(pk), aid = PART_ACTIVE[pk];
+  const rs = state.pending && state.pending.kind==="reset" && state.pending.id===pk;
+  const rf = partRefund(pk), able = canReset(pk);
+  return `<div class="rhead" style="${pcStyle(pk)}">
+      <span class="rt" style="color:${DCOLOR[pk]}">${PP.name} · ${PP.role}</span>
+      <span class="spacer"></span>
+      <button class="tiny" data-act="closePart">关闭</button>
+    </div>
+    ${aid ? `<div class="sect" style="margin-top:0">主动技能<span class="aux">每回合行动 · Lv.${state.act[aid]} / ${ACT_MAX}</span></div>
+             ${actCard(pk, aid)}` : ""}
+    <div class="sect" ${aid?"":`style="margin-top:0"`}>被动栏 cost<span class="aux num">已用 ${used} / ${cap} · 上限 ${PP.capMax}</span></div>
+    <div style="${pcStyle(pk)}">${slotsHTML(pk, "lg")}</div>
+    <div class="sect">被动芯片<span class="aux">每张 cost 1 · 最高 Lv.${PAS_MAX}</span></div>
+    ${chipRows(pk)}
+    <div class="resetbar">
+      ${rs ? `<div class="conf" style="${pcStyle(pk)}">
+          <div class="confrow"><span class="lbl">${PP.name}的养成将恢复到初始状态</span></div>
+          <div class="confrow"><span class="lbl">返还</span><span class="spacer"></span>
+            ${rf.mod?tok("mod","+"+rf.mod):""}${rf.body?tok("body","+"+rf.body):""}</div>
+        </div>
+        <div class="ft">
+          <button data-act="closeConfirm">取消</button>
+          <button class="pri" data-act="confirmPending">确认重置</button>
+        </div>`
+      : `<button class="danger" data-act="askReset" data-pk="${pk}" ${able?"":"disabled"}>↺ 重置${PP.name}养成</button>
+         <div class="rf">${able ? `可返还 ${rf.mod?tok("mod",rf.mod):""}${rf.body?tok("body",rf.body):""}`
+                                : "该部位尚未投入材料"}</div>`}
+    </div>`;
+}
+
+function actCard(pk, id){
+  const A = ACTIVES[id], lv = state.act[id];
+  const on = state.pending && state.pending.kind==="act" && state.pending.id===id;
+  let body;
+  if (on){
+    const c = ACT_UP_COST[lv-1], have = state.res.mod;
+    body = confHTML(A.diff(lv).map(r=>({l:r.l, f:r.f, t:r.t})), pk)
+      + `<div class="ft"><button data-act="closeConfirm">取消</button>
+         <button class="pri" data-act="confirmPending" ${have<c?"disabled":""}>确认</button>
+         ${costHTML("mod", c, have)}</div>`;
+  } else {
+    body = `<div class="ft">${lv>=ACT_MAX ? `<span class="max">已满级</span>`
+      : `<button class="pc" data-act="askAct" data-id="${id}">强化</button>`}</div>`;
+  }
+  return `<div class="actcard" style="${pcStyle(pk)}">
+    <div class="ic">${A.icon}</div>
+    <div>
+      <div class="h"><span class="nm">${A.name}</span><span class="lvb">Lv.${lv}</span><span class="kind">${A.kind}</span></div>
+      <div class="desc">${A.text(lv)}</div>
+      ${body}
+    </div></div>`;
+}
+
+function chipRows(pk){
+  let out = "";
+  for (const id of CHIP_ORDER){
+    const d = PASSIVES[id]; if (d.part!==pk) continue;
+    const un = state.pasUnlocked[id], eq = isEquipped(id), lv = lvOf(id);
+    const cls = !un ? "locked" : eq ? "equip" : "owned";
+    const badge = !un ? "未解锁" : eq ? "✓ 已装备" : "已解锁";
+    const on = state.pending && state.pending.kind==="pas" && state.pending.id===id;
+    let body;
+    if (on){
+      const have = state.res.mod;
+      body = confHTML([{l:d.lbl, f:d.fmt(d.v[lv-1]), t:d.fmt(d.v[lv])}], pk)
+        + `<div class="ft"><button data-act="closeConfirm">取消</button>
+           <button class="pri" data-act="confirmPending" ${have<PRICE.upgradePas?"disabled":""}>确认</button>
+           ${costHTML("mod", PRICE.upgradePas, have)}</div>`;
+    } else if (!un){
+      const short = state.res.mod < d.price;
+      body = `<div class="ft"><button class="lk" data-act="unlockPas" data-id="${id}" ${short?"disabled":""}>🔒 解锁 ${tok("mod", d.price, short)}</button></div>`;
+    } else {
+      const fits = hasSlot(pk);
+      let acts = eq ? `<button class="txt" data-act="unequip" data-id="${id}">卸下</button>`
+                    : `<button class="pc" data-act="equip" data-id="${id}" ${fits?"":"disabled"}>安装</button>`;
+      acts += lv>=PAS_MAX ? `<span class="max">已满级</span>`
+                          : `<button data-act="askPas" data-id="${id}">强化</button>`;
+      if (!eq && !fits) acts += `<span class="hint">${PARTS[pk].name} cost 空间不足</span>`;
+      body = `<div class="ft">${acts}</div>`;
+    }
+    out += `<div class="chip ${cls}" style="${pcStyle(pk)}">
+      <div class="ic"><span class="em">${d.icon}</span>${un?"":`<span class="lkb">🔒</span>`}</div>
+      <div>
+        <div class="h"><span class="nm">${d.name}</span><span class="tag">${d.tag}</span><span class="st">${badge}</span></div>
+        <div class="desc">${pasText(id, lv)}</div>
+        ${body}
+      </div></div>`;
+  }
+  return out;
+}
+
+function render(){
+  const on = buildOn();
+  $("colBuild").style.display = on ? "" : "none";
+  $("grid").className = "grid" + (on ? "" : " solo");
+  $("r-mod").textContent = state.res.mod;
+  $("r-body").textContent = state.res.body;
+  if (on) renderStage();
+  renderRight();
+}
+
+/* ================= 事件 ================= */
+document.addEventListener("click", e=>{
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const a = el.dataset.act, id = el.dataset.id, pk = el.dataset.pk;
+  if (a==="openPart") openPart(pk);
+  else if (a==="closePart") closePart();
+  else if (a==="unlockPas") actUnlockPas(id);
+  else if (a==="equip") actEquip(id);
+  else if (a==="unequip") actUnequip(id);
+  else if (a==="askPas") openConfirm("pas", id);
+  else if (a==="askAct") openConfirm("act", id);
+  else if (a==="askReset"){ state.pending = {kind:"reset", id:pk}; render(); }
+  else if (a==="closeConfirm") closeConfirm();
+  else if (a==="confirmPending") confirmPending();
+  else if (a==="part") actUpPart(pk);
+  else if (a==="tab") pickTab(+el.dataset.ch);
+  else if (a==="fight" || a==="again") actFight(el.dataset.key);
+  else if (a==="back"){
+    state.view = { battle:null, gained:null };
+    state.right = "levels";
+    if (LEVEL_ORDER.some(k=>state.cleared[k])) state.buildRevealed = true;
+    render();
+  }
+});
+$("colBuild").addEventListener("click", e=>{
+  if (e.target.closest('[data-act="openPart"]')) return;
+  if (state.right === "part") closePart();
+});
+if (typeof ResizeObserver !== "undefined"){
+  let lastW = 0;
+  new ResizeObserver(ents=>{
+    const w = Math.round(ents[0].contentRect.width);
+    if (w && w !== lastW){ lastW = w; if (buildOn()) renderStage(); }
+  }).observe($("colBuild"));
+}
+$("btn-reset").addEventListener("click", ()=>{ state = initialState(); render(); });
+
+render();
+</script>
+</body>
+</html>
